@@ -1,0 +1,6 @@
+venv
+.idea
+*.iml
+.env
+vaultwarden_cookies.txt
+*.sqlite
