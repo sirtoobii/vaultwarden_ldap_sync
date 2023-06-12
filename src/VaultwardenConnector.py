@@ -72,11 +72,20 @@ class VaultwardenConnector:
                 del self._tm_enabled[user_id]
         else:
             self.make_authenticated_request('{}/admin/users/{}/disable'.format(self.vaultwarden_url, user_id),
-                                            expected_return_code=204, method='POST')
+                                            expected_return_code=200, method='POST')
+
+    def enable_user(self, user_id: str):
+        if self.is_test_mode:
+            if user_id in self._tm_disabled:
+                self._tm_enabled[user_id] = self._tm_disabled[user_id]
+                del self._tm_disabled[user_id]
+        else:
+            self.make_authenticated_request('{}/admin/users/{}/enable'.format(self.vaultwarden_url, user_id),
+                                            expected_return_code=200, method='POST')
 
     def invite_user(self, user_email: str) -> str:
         if self.is_test_mode:
-            user_id = str(uuid.uuid1())
+            user_id = 'ID_{}'.format(user_email)
             self._tm_enabled[user_id] = user_email
             return user_id
         else:
@@ -94,6 +103,14 @@ class VaultwardenConnector:
             del self._tm_enabled[user_id]
         if user_id in self._tm_disabled:
             del self._tm_disabled[user_id]
+
+    def _set_user_email(self, user_id: str, user_email: str):
+        if not self.is_test_mode:
+            raise RuntimeError('This method is only for testing')
+        if user_id in self._tm_enabled:
+            self._tm_enabled[user_id] = user_email
+        if user_id in self._tm_disabled:
+            self._tm_disabled[user_id] = user_email
 
     def _clear_test_data(self):
         self._tm_enabled = {}
