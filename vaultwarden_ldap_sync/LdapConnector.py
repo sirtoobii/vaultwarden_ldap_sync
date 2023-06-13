@@ -2,12 +2,9 @@ import os
 
 from ldap.ldapobject import SimpleLDAPObject
 
-
 import ldap
 import logging
 import contextlib
-
-
 
 
 class LdapConnector:
@@ -34,10 +31,15 @@ class LdapConnector:
             conn.unbind_s()
 
     def get_email_list(self):
+        """
+        Performs a ldap search based on the filter setting in LDAP_SEARCH_FILTER
+
+        :return: A (possibly) empty list of email addresses (or technically speaking the content of the LDAP_EMAIL_ATTR field)
+        """
         with self.connect() as ldap_server:
             try:
                 results = ldap_server.search_s(self.ldap_base_dn, ldap.SCOPE_SUBTREE, self.ldap_search_filter)
-            except ldap.NO_SUCH_OBJECT as e:
+            except ldap.NO_SUCH_OBJECT:
                 logging.warning('Ldap search returned no results')
                 return []
             return [e[1][self.ldap_email_attr][0].decode() for e in results]

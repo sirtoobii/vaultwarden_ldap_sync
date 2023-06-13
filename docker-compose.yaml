@@ -1,0 +1,13 @@
+version: "3.1"
+
+services:
+  vaultwarden_ldap_sync:
+    container_name: vaultwarden_ldap_sync
+    build:
+      dockerfile: Dockerfile
+      context: .
+    restart: on-failure
+    env_file:
+      - .env
+    volumes:
+      - "./data/:/data"

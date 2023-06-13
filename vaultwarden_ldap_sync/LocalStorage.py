@@ -1,3 +1,4 @@
+import os.path
 import sqlite3
 import time
 import logging
@@ -8,14 +9,13 @@ ALLOWED_USER_STATES = ['ENABLED', 'DISABLED', 'DELETED']
 
 class LocalStore:
 
-    def __init__(self, sqlite_file: str, dry_run=False):
+    def __init__(self, sqlite_file: str):
         self.con = sqlite3.connect(sqlite_file)
-        self.dry_run_state = {}
-        self.is_dry_run = dry_run
+        self.init_db()
 
     def init_db(self):
         schema = '''
-                create table Users
+                create table if not exists Users
         (
             id           integer not null
                 constraint Users_pk
@@ -32,6 +32,10 @@ class LocalStore:
         self.con.commit()
 
     def get_all_users(self) -> tuple:
+        """
+        Get all managed users (-> All users which have been invited by this script)
+        :return: A 3-tuple containing enabled, disabled/deleted and all users
+        """
         res = self.con.cursor().execute("SELECT invite_email, vw_email, vw_user_id, state FROM Users;")
         enabled = {}
         disabled = {}
@@ -49,6 +53,12 @@ class LocalStore:
         return enabled, disabled, {**enabled, **disabled}
 
     def register_user(self, user_email: str, user_id: str):
+        """
+        Register user as a 'managed user'
+        :param user_email: Invitation Email
+        :param user_id: User ID returned by vaultwarden
+        :return: None
+        """
         cursor = self.con.cursor()
         try:
             cursor.execute(
@@ -59,18 +69,26 @@ class LocalStore:
             logging.warning('Could not insert user {}: {}'.format(user_email, e))
 
     def set_user_state(self, vw_user_id: str, user_state):
+        """
+        Set user state (meant to reflect the state in vaultwarden)
+        :param vw_user_id: Vaultwarden User ID
+        :param user_state: One of ENABLED,DISABLED or DELETED
+        :return: None
+        """
         if user_state not in ALLOWED_USER_STATES:
             raise ValueError('Invalid user state. Must be one of: {}'.format(ALLOWED_USER_STATES))
-        if self.is_dry_run:
-            self.dry_run_state[user_state] = {
-                'state': user_state
-            }
         else:
             self.con.cursor().execute('UPDATE Users SET state = ?, last_touched = ? WHERE vw_user_id = ?',
                                       (user_state, time.time(), vw_user_id))
             self.con.commit()
 
     def update_vw_email(self, vw_user_id: str, new_vw_email: str):
+        """
+        Update vaultwarden email (after user updated his email in vaultwarden)
+        :param vw_user_id: Vaultwarden User ID
+        :param new_vw_email: New email
+        :return: None
+        """
         self.con.cursor().execute('UPDATE Users SET vw_email = ?, last_touched = ? WHERE vw_user_id = ?',
                                   (new_vw_email, time.time(), vw_user_id))
         self.con.commit()
@@ -78,7 +96,6 @@ class LocalStore:
     def delete_user(self, vw_user_id):
         self.con.cursor().execute('DELETE FROM Users WHERE vw_user_id = ?', (vw_user_id,))
         self.con.commit()
-
 
     def __del__(self):
         self.con.close()

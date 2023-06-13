@@ -1,7 +1,6 @@
 import logging
 import os
 import http.cookiejar
-import uuid
 
 import requests
 from requests import Response
@@ -22,12 +21,20 @@ class VaultwardenConnector:
         self._tm_enabled = {}
         self._tm_disabled = {}
 
-    def make_authenticated_request(self, uri: str, payload: dict = None, method='GET',
+    def make_authenticated_request(self, url: str, payload: dict = None, method='GET',
                                    expected_return_code=200) -> Response:
+        """
+        Make an authenticated request against the vaultwarden admin API by either using the stored cookie or the VAULTWARDEN_ADMIN_TOKEN
+        :param url: Full request url
+        :param payload: Json payload
+        :param method: GET, POST
+        :param expected_return_code: Expected return code, raises an exception if not matching
+        :return: On success, the Response object
+        """
         if os.path.exists(COOKIE_JAR_NAME):
             self.client.cookies.load()
             logging.debug('Cookie store found, loading')
-        req = self.client.request(method, uri, json=payload)
+        req = self.client.request(method, url, json=payload)
         if req.status_code == expected_return_code:
             return req
         elif req.status_code == 401:
@@ -38,7 +45,7 @@ class VaultwardenConnector:
                 self.client.cookies.save()
                 logging.debug('Authentication using token successful, storing cookie')
                 # Try again
-                return self.make_authenticated_request(uri, payload, method, expected_return_code)
+                return self.make_authenticated_request(url, payload, method, expected_return_code)
             else:
                 raise ConnectionError(
                     'Could not authenticate against {}/admin: {}'.format(self.vaultwarden_url, req.reason))

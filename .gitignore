@@ -4,3 +4,4 @@ venv
 .env
 vaultwarden_cookies.txt
 *.sqlite
+*.log

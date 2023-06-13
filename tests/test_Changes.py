@@ -1,9 +1,9 @@
 import os
 from unittest import TestCase
 
-from bin.sync import collect_change_set, sync_state
-from src.VaultwardenConnector import VaultwardenConnector
-from src.LocalStorage import LocalStore
+from scripts.sync import collect_change_set
+from vaultwarden_ldap_sync.VaultwardenConnector import VaultwardenConnector
+from vaultwarden_ldap_sync.LocalStorage import LocalStore
 
 
 class ChangesTest(TestCase):
@@ -32,8 +32,8 @@ class ChangesTest(TestCase):
         change_set = collect_change_set(self.vwc, self.ls,
                                         ldap_users=[self.user_email1, self.user_email2])
 
-        self.assertEqual(change_set['invite'], set())
-        self.assertEqual(change_set['disable'], set())
+        self.assertEqual(set(), change_set['invite'])
+        self.assertEqual([], change_set['disable'])
 
     def test_user_changed_email(self):
         self.vwc._set_user_email(self.user_id1, 'bla@external.com')
@@ -42,21 +42,21 @@ class ChangesTest(TestCase):
         change_set = collect_change_set(self.vwc, self.ls,
                                         ldap_users=[self.user_email1, self.user_email2])
         self.assertEqual(set(), change_set['invite'])
-        self.assertEqual(set(), change_set['disable'])
+        self.assertEqual([], change_set['disable'])
 
         # and then this user registration address disappears from ldap
         change_set = collect_change_set(self.vwc, self.ls,
                                         ldap_users=[self.user_email2])
 
         self.assertEqual(set(), change_set['invite'], 'Users to invite')
-        self.assertEqual({self.user_email1}, change_set['disable'], 'Users to disable')
+        self.assertEqual([self.user_id1], change_set['disable'], 'Users to disable')
 
     def test_unknown_only_to_us(self):
         self.vwc.invite_user('alien@mars.space')
         change_set = collect_change_set(self.vwc, self.ls,
                                         ldap_users=[self.user_email1, self.user_email2, 'alien@mars.space'])
-        self.assertEqual(change_set['invite'], set())
-        self.assertEqual(change_set['disable'], set())
+        self.assertEqual(set(), change_set['invite'])
+        self.assertEqual([], change_set['disable'])
 
     def test_user_already_known(self):
         self.ls.register_user('old_user@test.com', 'uuuu-iiii-dddd')
@@ -72,13 +72,13 @@ class ChangesTest(TestCase):
 
     def test_user_disappeared_from_ldap(self):
         change_set = collect_change_set(self.vwc, self.ls, ldap_users=[self.user_email1])
-        self.assertEqual(change_set['disable'], {self.user_email2})
+        self.assertEqual([self.user_id2], change_set['disable'])
 
     def test_nothing_to_do(self):
         # We are in sync
         change_set = collect_change_set(self.vwc, self.ls, ldap_users=[self.user_email1, self.user_email2])
-        self.assertEqual(change_set['invite'], set())
-        self.assertEqual(change_set['disable'], set())
+        self.assertEqual(set(), change_set['invite'])
+        self.assertEqual([], change_set['disable'])
 
     @classmethod
     def tearDown(cls) -> None:

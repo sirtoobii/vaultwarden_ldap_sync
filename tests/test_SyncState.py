@@ -1,9 +1,9 @@
 import os
 import unittest
 
-from bin.sync import sync_state
-from src.LocalStorage import LocalStore
-from src.VaultwardenConnector import VaultwardenConnector
+from scripts.sync import sync_state
+from vaultwarden_ldap_sync.LocalStorage import LocalStore
+from vaultwarden_ldap_sync.VaultwardenConnector import VaultwardenConnector
 
 
 class SyncStateTest(unittest.TestCase):
