@@ -18,22 +18,22 @@ def setup_cli_args():
     parser = argparse.ArgumentParser(
         prog='Vaultwarden LDAP sync',
         description='Keeps your LDAP and Vaultwarden users in sync',
-        epilog='This program comes with no warranty and I´m happy to review your contributions')
+        epilog='Note: environment (VARIABLES) take precedence')
     parser.add_argument('--loglevel', type=str, choices=['WARN', 'INFO', 'DEBUG', 'ERROR'],
-                        help='Set loglevel', default='INFO')
+                        help='Set loglevel (LOGLEVEL)', default='INFO')
     parser.add_argument('--logfile', type=str,
                         help='Path to logfile, defaults to /tmp/ldap_sync.log', default='/tmp/ldap_sync.log')
     parser.add_argument('--dryrun', action='store_true',
-                        help='Do not do any changes just print out log messages',
+                        help='Do not do any changes just print out log messages (DRYRUN)',
                         default=False)
     parser.add_argument('--runonce', action='store_true',
                         help='Do not enter the main loop, terminate after first run',
                         default=False)
     parser.add_argument('--interval', type=int,
-                        help='Interval between sync attempts in seconds',
+                        help='Interval between sync attempts in seconds (SYNC_INTERVAL_SECONDS)',
                         default=5000)
     parser.add_argument('--override_safe_guard', type=int,
-                        help='Override invite/disable safeguard number',
+                        help='Override invite/disable safeguard number (MAX_USERS_AT_ONCE)',
                         default=20)
     parser.add_argument('--heartbeat_file', type=str,
                         help='If the main loop processed without any Exception, touch this status file',
@@ -153,16 +153,22 @@ def sync_state(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
 
 if __name__ == '__main__':
     args = setup_cli_args()
-    setup_logging(args.logfile, args.loglevel)
+    log_level = os.getenv('LOGLEVEL', args.loglevel)
+    log_file = os.getenv('LOGFILE', args.logfile)
+    setup_logging(log_file, log_level)
     ls = LocalStore(os.getenv('SQLITE_DB'))
     vwc = VaultwardenConnector()
     ldc = LdapConnector()
-    safe_guard = max(args.override_safe_guard, int(os.getenv('MAX_USERS_AT_ONCE', 20)))
-    is_dry_run = os.getenv('DRYRUN', 0) == 1 or args.dryrun
+    safe_guard = int(os.getenv('MAX_USERS_AT_ONCE', args.override_safe_guard))
+    t = os.getenv('DRYRUN')
+    is_dry_run = os.getenv('DRYRUN', 0) == '1' or args.dryrun
     ldap_emails = ldc.get_email_list()
 
-    if args.dryrun:
-        logging.warning('!!Running in dryrun mode, will not do any changes!!')
+    logging.info('Starting...')
+    logging.info('DRYRUN: {}'.format(is_dry_run))
+    logging.info('LDAP server: {}'.format(os.getenv('LDAP_SERVER')))
+    logging.info('Vaultwarden url: {}'.format(os.getenv('VAULTWARDEN_URL')))
+
     while True:
         try:
             # first sync state
@@ -177,34 +183,34 @@ if __name__ == '__main__':
 
             for user_id in state_update['vanished']:
                 if os.getenv('CLEANUP_VANISHED_USERS') == '1':
-                    if not args.dryrun:
+                    if not is_dry_run:
                         ls.delete_user(user_id)
                     logging.info(
                         'Cleanup vanished user: {}'.format(
                             state_update['all_managed_users'][user_id]['invite_email']))
 
             for user_id in state_update['deleted']:
-                if not args.dryrun:
+                if not is_dry_run:
                     ls.set_user_state(user_id, 'DELETED')
                 logging.info(
                     'Set state to DELETED for: {}'.format(
                         state_update['all_managed_users'][user_id]['invite_email']))
 
             for user_id in state_update['disabled']:
-                if not args.dryrun:
+                if not is_dry_run:
                     ls.set_user_state(user_id, 'DISABLED')
                 logging.info(
                     'Set state to DISABLED for: {}'.format(
                         state_update['all_managed_users'][user_id]['invite_email']))
 
             for user_id, change_data in state_update['email_changed'].items():
-                if not args.dryrun:
+                if not is_dry_run:
                     ls.update_vw_email(user_id, change_data['to'])
                 logging.info('Changed email from {} to {}'.format(change_data['from'], change_data['to']))
 
             for user_id in state_update['enabled']:
                 if os.getenv('UNTIE_RE-ENABLED_USERS') == '1':
-                    if not args.dryrun:
+                    if not is_dry_run:
                         ls.delete_user(user_id)
                     logging.info(
                         'User {} forcefully enabled by Admin. Permanently untie this user from automatic management'.format(
@@ -223,13 +229,13 @@ if __name__ == '__main__':
                         safe_guard))
             else:
                 for user_email in invite_or_delete['invite']:
-                    if not args.dryrun:
+                    if not is_dry_run:
                         user_id = vwc.invite_user(user_email)
                         ls.register_user(user_email, user_id)
                     logging.info('Invite user {}'.format(user_email))
 
                 for user_id in invite_or_delete['disable']:
-                    if not args.dryrun:
+                    if not is_dry_run:
                         vwc.disable_user(user_id)
                         ls.set_user_state(user_id, 'DISABLED')
                     logging.info(
