@@ -42,4 +42,20 @@ class LdapConnector:
             except ldap.NO_SUCH_OBJECT:
                 logging.warning('Ldap search returned no results')
                 return []
-            return [e[1][self.ldap_email_attr][0].decode() for e in results]
+        ldap_email_list = []
+        for e in results:
+            try:
+                ldap_email_list.append(e[1][self.ldap_email_attr][0].decode())
+            except KeyError:
+                logging.warning('One of returned objects missing your LDAP_EMAIL_ATTR')
+                logging.debug('LDAP request object returned following keys: {}'.format(e[1].keys()))
+                continue
+            except IndexError:
+                logging.warning('LDAP request object returned badly formatted response')
+                logging.debug('Response: {}'.format(e))
+                continue
+            except Exception as err:
+                logging.warning('Oops, something went wrong')
+                logging.debug('Exception was: {}'.format(err))
+                continue
+        return ldap_email_list
