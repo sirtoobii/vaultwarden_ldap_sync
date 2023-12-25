@@ -1,10 +1,10 @@
 # Vaultwarden LDAP sync adapter
 
-This python libray combines the functionality of the
-official [Bitwarden Directory Connector](https://bitwarden.com/help/directory-sync/)
-and [vaultwarden_ldap](https://github.com/ViViDboarder/vaultwarden_ldap). Namely, it invites unseen LDAP users (
-according to filter) and disables users which vanished from LDAP while even surviving
-a user initiated change of the email address in vaultwarden.
+This python library is a lightweight alternative to the official [Bitwarden Directory Connector](https://bitwarden.com/help/directory-sync/)
+aiming to be less "clunkly" than the [vaultwarden_ldap](https://github.com/ViViDboarder/vaultwarden_ldap) (written in Rust) implementation.
+
+Specifically, it invites unseen LDAP users (according to filter) and disables users which vanished from LDAP while even surviving
+a user initiated change of the email address in Vaultwarden. Furthermore, its simple architecture should allow for easy integration of other email sources.
 
 ## Configuration
 

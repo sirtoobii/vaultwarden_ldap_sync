@@ -5,3 +5,4 @@ venv
 vaultwarden_cookies.txt
 *.sqlite
 *.log
+__pycache__
