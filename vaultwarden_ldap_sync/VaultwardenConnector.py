@@ -66,11 +66,11 @@ class VaultwardenConnector:
         result = self.make_authenticated_request('{}/admin/users'.format(self.vaultwarden_url),
                                                  expected_return_code=200)
         for user_item in result.json():
-            if user_item['UserEnabled']:
-                enabled[user_item['Id']] = user_item['Email']
+            if user_item['userEnabled']:
+                enabled[user_item['id']] = user_item['email']
             else:
-                disabled[user_item['Id']] = user_item['Email']
-            all_users[user_item['Id']] = user_item['Email']
+                disabled[user_item['id']] = user_item['email']
+            all_users[user_item['id']] = user_item['email']
         return enabled, disabled, all_users
 
     def disable_user(self, user_id: str):
@@ -100,7 +100,7 @@ class VaultwardenConnector:
             result = self.make_authenticated_request('{}/admin/invite'.format(self.vaultwarden_url), method='POST',
                                                      expected_return_code=200,
                                                      payload={'email': user_email})
-            created_user_id = result.json()['Id']
+            created_user_id = result.json()['id']
             logging.info('Successfully invited user {} with ID {}'.format(user_email, created_user_id))
             return created_user_id
 
