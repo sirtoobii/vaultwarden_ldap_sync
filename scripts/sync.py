@@ -51,13 +51,13 @@ def setup_logging(logfile: str, loglevel: str):
                         level=logging.getLevelName(loglevel))
 
 
-def collect_change_set(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
+def collect_change_set(vwc: VaultwardenConnector, ls: LocalStore, source_email_addresses: list):
     """
-    Finds changes made in vaultwarden (and ldap) which are not yet reflected in our local state
+    Finds changes made in vaultwarden (and email source) which are not yet reflected in our local state
 
     :param vwc: Vaultwarden connector instance
     :param ls: LocalStore instance
-    :param ldap_users: List of email addresses resulting from the LDAP query
+    :param source_email_addresses: List of source email addresses (invite candidates)
     :return: Returns a dict with the following structure:
         {
             'invite': [list of emails to invite],
@@ -77,14 +77,14 @@ def collect_change_set(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: li
 
     # We want to disable users which are:
     # Present in our LocalStore (state=ENABLED) and NOT present in LDAP
-    user_emails_to_disable = set(managed_user_emails_enabled).difference(set(ldap_users))
+    user_emails_to_disable = set(managed_user_emails_enabled).difference(set(source_email_addresses))
 
     # We want to invite users which are:
     # Present in LDAP but not preset in Vaultwarden AND NOT present in LocalStore
     known_user_emails = set(vaultwarden_user_emails_all) \
         .union(set(managed_users_emails_all_inv)) \
         .union(set(managed_users_emails_all_vw))
-    users_to_invite = set(ldap_users).difference(known_user_emails)
+    users_to_invite = set(source_email_addresses).difference(known_user_emails)
 
     return {
         'invite': users_to_invite,
@@ -92,13 +92,13 @@ def collect_change_set(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: li
     }
 
 
-def sync_state(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
+def sync_state(vwc: VaultwardenConnector, ls: LocalStore, source_email_addresses: list):
     """
-    Finds changes made in vaultwarden (and ldap) which are not yet reflected in our local state
+    Finds changes made in vaultwarden (and email source) which are not yet reflected in our local state
 
     :param vwc: Vaultwarden connector instance
     :param ls: LocalStore instance
-    :param ldap_users: List of email addresses resulting from the LDAP query
+    :param source_email_addresses: List of source email addresses (invite candidates)
     :return: Returns a dict with the following structure:
         {
             'vanished': [managed_email_to_user_id[user_email] for user_email in vanished_user_emails],
@@ -118,7 +118,7 @@ def sync_state(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
 
     # find users which aren't present in LDAP and Vaultwarden (but our local state)
     vanished_user_emails = set(managed_user_emails_all).difference(
-        set(vaultwarden_user_emails_all).union(ldap_users))
+        set(vaultwarden_user_emails_all).union(source_email_addresses))
 
     # find deleted in vaultwarden
     deleted_user_ids = set(ma_all.keys()).difference(vw_all.keys())
@@ -135,11 +135,11 @@ def sync_state(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
         if ma_all[user_id]['vw_email'] != vw_all[user_id]:
             email_changed[user_id] = {'from': ma_all[user_id]['vw_email'], 'to': vw_all[user_id]}
             # temporarily add old email to ldap users to prevent it from appearing in vanished
-            ldap_users.append(ma_all[user_id]['vw_email'])
+            source_email_addresses.append(ma_all[user_id]['vw_email'])
 
     # find users which aren't present in LDAP and Vaultwarden (but our local state)
     vanished_user_emails = set(managed_user_emails_all).difference(
-        set(vaultwarden_user_emails_all).union(ldap_users))
+        set(vaultwarden_user_emails_all).union(source_email_addresses))
 
     return {
         'vanished': [managed_email_to_user_id[user_email] for user_email in vanished_user_emails],
@@ -147,7 +147,8 @@ def sync_state(vwc: VaultwardenConnector, ls: LocalStore, ldap_users: list):
         'disabled': disabled_user_ids,
         'enabled': enabled_user_ids,
         'email_changed': email_changed,
-        'all_managed_users': ma_all
+        'all_managed_users': ma_all,
+        'vaultwarden_all_users': vw_all
     }
 
 
@@ -158,9 +159,8 @@ if __name__ == '__main__':
     setup_logging(log_file, log_level)
     ls = LocalStore(os.getenv('SQLITE_DB'))
     vwc = VaultwardenConnector()
-    ldc = LdapConnector()
+    ldc = LdapConnector(source_name="LDAP")
     safe_guard = int(os.getenv('MAX_USERS_AT_ONCE', args.override_safe_guard))
-    t = os.getenv('DRYRUN')
     is_dry_run = os.getenv('DRYRUN', 0) == '1' or args.dryrun
     ldap_emails = ldc.get_email_list()
 
@@ -169,12 +169,17 @@ if __name__ == '__main__':
     logging.info('LDAP server: {}'.format(os.getenv('LDAP_SERVER')))
     logging.info('Vaultwarden url: {}'.format(os.getenv('VAULTWARDEN_URL')))
 
+    log_prefix = ""
+    if is_dry_run:
+        log_prefix = "[DRYRUN] "
+
     while True:
         try:
             # first sync state
             state_update = sync_state(vwc, ls, ldap_emails)
 
             # State summary
+            logging.debug('Found {} user(s) in Vaultwarden'.format(len(state_update['vaultwarden_all_users'])))
             logging.debug('Found {} vanished user(s)'.format(len(state_update['vanished'])))
             logging.debug('Found {} deleted user(s)'.format(len(state_update['deleted'])))
             logging.debug('Found {} disabled user(s)'.format(len(state_update['disabled'])))
@@ -186,42 +191,45 @@ if __name__ == '__main__':
                     if not is_dry_run:
                         ls.delete_user(user_id)
                     logging.info(
-                        'Cleanup vanished user: {}'.format(
-                            state_update['all_managed_users'][user_id]['invite_email']))
+                        '{}Cleanup vanished user: {}'.format(log_prefix,
+                                                             state_update['all_managed_users'][user_id][
+                                                                 'invite_email']))
 
             for user_id in state_update['deleted']:
                 if not is_dry_run:
                     ls.set_user_state(user_id, 'DELETED')
                 logging.info(
-                    'Set state to DELETED for: {}'.format(
-                        state_update['all_managed_users'][user_id]['invite_email']))
+                    '{}Set state to DELETED for: {}'.format(log_prefix,
+                                                            state_update['all_managed_users'][user_id]['invite_email']))
 
             for user_id in state_update['disabled']:
                 if not is_dry_run:
                     ls.set_user_state(user_id, 'DISABLED')
                 logging.info(
-                    'Set state to DISABLED for: {}'.format(
-                        state_update['all_managed_users'][user_id]['invite_email']))
+                    '{}Set state to DISABLED for: {}'.format(log_prefix,
+                                                             state_update['all_managed_users'][user_id][
+                                                                 'invite_email']))
 
             for user_id, change_data in state_update['email_changed'].items():
                 if not is_dry_run:
                     ls.update_vw_email(user_id, change_data['to'])
-                logging.info('Changed email from {} to {}'.format(change_data['from'], change_data['to']))
+                logging.info('{}Changed email from {} to {}'.format(log_prefix, change_data['from'], change_data['to']))
 
             for user_id in state_update['enabled']:
                 if os.getenv('UNTIE_RE-ENABLED_USERS') == '1':
                     if not is_dry_run:
                         ls.delete_user(user_id)
                     logging.info(
-                        'User {} forcefully enabled by Admin. Permanently untie this user from automatic management'.format(
+                        '{}User {} forcefully enabled by Admin. Permanently untie this user from automatic management'.format(
+                            log_prefix,
                             state_update['all_managed_users'][user_id]['invite_email']))
 
             # then search for users to invite or delete
             invite_or_delete = collect_change_set(vwc, ls, ldap_emails)
 
             # Change summary
-            logging.debug('Found {} user(s) to invite'.format(len(invite_or_delete['invite'])))
-            logging.debug('Found {} user(s) to disable'.format(len(invite_or_delete['disable'])))
+            logging.debug('{}Found {} user(s) to invite'.format(log_prefix, len(invite_or_delete['invite'])))
+            logging.debug('{}Found {} user(s) to disable'.format(log_prefix, len(invite_or_delete['disable'])))
 
             if len(invite_or_delete['disable']) > safe_guard or len(invite_or_delete['invite']) > safe_guard:
                 logging.warning(
@@ -232,14 +240,15 @@ if __name__ == '__main__':
                     if not is_dry_run:
                         user_id = vwc.invite_user(user_email)
                         ls.register_user(user_email, user_id)
-                    logging.info('Invite user {}'.format(user_email))
+                    logging.info('{}Invite user {}'.format(log_prefix, user_email))
 
                 for user_id in invite_or_delete['disable']:
                     if not is_dry_run:
                         vwc.disable_user(user_id)
                         ls.set_user_state(user_id, 'DISABLED')
                     logging.info(
-                        'Disable user {}'.format(state_update['all_managed_users'][user_id]['invite_email']))
+                        '{}Disable user {}'.format(log_prefix,
+                                                   state_update['all_managed_users'][user_id]['invite_email']))
             if args.runonce:
                 exit(0)
             # Touch heartbeat file

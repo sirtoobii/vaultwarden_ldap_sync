@@ -30,7 +30,7 @@ class ChangesTest(TestCase):
 
         self.vwc.enable_user(self.user_id1)
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=[self.user_email1, self.user_email2])
+                                        source_email_addresses=[self.user_email1, self.user_email2])
 
         self.assertEqual(set(), change_set['invite'])
         self.assertEqual([], change_set['disable'])
@@ -40,13 +40,13 @@ class ChangesTest(TestCase):
         self.ls.update_vw_email(self.user_id1, 'bla@external.com')
         _, _, t = self.ls.get_all_users()
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=[self.user_email1, self.user_email2])
+                                        source_email_addresses=[self.user_email1, self.user_email2])
         self.assertEqual(set(), change_set['invite'])
         self.assertEqual([], change_set['disable'])
 
         # and then this user registration address disappears from ldap
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=[self.user_email2])
+                                        source_email_addresses=[self.user_email2])
 
         self.assertEqual(set(), change_set['invite'], 'Users to invite')
         self.assertEqual([self.user_id1], change_set['disable'], 'Users to disable')
@@ -54,7 +54,7 @@ class ChangesTest(TestCase):
     def test_unknown_only_to_us(self):
         self.vwc.invite_user('alien@mars.space')
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=[self.user_email1, self.user_email2, 'alien@mars.space'])
+                                        source_email_addresses=[self.user_email1, self.user_email2, 'alien@mars.space'])
         self.assertEqual(set(), change_set['invite'])
         self.assertEqual([], change_set['disable'])
 
@@ -62,21 +62,21 @@ class ChangesTest(TestCase):
         self.ls.register_user('old_user@test.com', 'uuuu-iiii-dddd')
         self.ls.set_user_state('uuuu-iiii-dddd', 'DISABLED')
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=['old_user@test.com', self.user_email1, self.user_email2])
+                                        source_email_addresses=['old_user@test.com', self.user_email1, self.user_email2])
         self.assertEqual(change_set['invite'], set())
 
     def test_user_appeared_on_ldap(self):
         change_set = collect_change_set(self.vwc, self.ls,
-                                        ldap_users=[self.user_email1, self.user_email2, 'new@tester.com'])
+                                        source_email_addresses=[self.user_email1, self.user_email2, 'new@tester.com'])
         self.assertEqual(change_set['invite'], {'new@tester.com'})
 
     def test_user_disappeared_from_ldap(self):
-        change_set = collect_change_set(self.vwc, self.ls, ldap_users=[self.user_email1])
+        change_set = collect_change_set(self.vwc, self.ls, source_email_addresses=[self.user_email1])
         self.assertEqual([self.user_id2], change_set['disable'])
 
     def test_nothing_to_do(self):
         # We are in sync
-        change_set = collect_change_set(self.vwc, self.ls, ldap_users=[self.user_email1, self.user_email2])
+        change_set = collect_change_set(self.vwc, self.ls, source_email_addresses=[self.user_email1, self.user_email2])
         self.assertEqual(set(), change_set['invite'])
         self.assertEqual([], change_set['disable'])
 

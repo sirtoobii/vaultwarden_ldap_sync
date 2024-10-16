@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 from ldap.ldapobject import SimpleLDAPObject
 
@@ -6,10 +7,13 @@ import ldap
 import logging
 import contextlib
 
+from vaultwarden_ldap_sync.EmailSource import EmailSource
 
-class LdapConnector:
 
-    def __init__(self):
+class LdapConnector(EmailSource):
+
+    def __init__(self, source_name: str):
+        super().__init__(source_name)
         self.ldap_server = os.getenv('LDAP_SERVER')
         self.ldap_scheme = os.getenv('LDAP_SCHEME', 'ldaps')
         self.ldap_tls = os.getenv('LDAP_TLS', 'true')
@@ -30,7 +34,7 @@ class LdapConnector:
         finally:
             conn.unbind_s()
 
-    def get_email_list(self):
+    def get_email_list(self) -> List[str]:
         """
         Performs a ldap search based on the filter setting in LDAP_SEARCH_FILTER
 

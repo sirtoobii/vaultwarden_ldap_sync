@@ -66,11 +66,13 @@ class VaultwardenConnector:
         result = self.make_authenticated_request('{}/admin/users'.format(self.vaultwarden_url),
                                                  expected_return_code=200)
         for user_item in result.json():
-            if user_item['UserEnabled']:
-                enabled[user_item['Id']] = user_item['Email']
+            # Starting with v1.32.0, Vaultwarden starts using (proper) CamelCase fields
+            normalized_user_item = {key.lower(): value for key, value in user_item.items()}
+            if normalized_user_item['userenabled']:
+                enabled[normalized_user_item['id']] = normalized_user_item['email']
             else:
-                disabled[user_item['Id']] = user_item['Email']
-            all_users[user_item['Id']] = user_item['Email']
+                disabled[normalized_user_item['id']] = normalized_user_item['email']
+            all_users[normalized_user_item['id']] = normalized_user_item['email']
         return enabled, disabled, all_users
 
     def disable_user(self, user_id: str):
@@ -100,7 +102,8 @@ class VaultwardenConnector:
             result = self.make_authenticated_request('{}/admin/invite'.format(self.vaultwarden_url), method='POST',
                                                      expected_return_code=200,
                                                      payload={'email': user_email})
-            created_user_id = result.json()['Id']
+            normalized_user_item = {key.lower(): value for key, value in result.json().items()}
+            created_user_id = normalized_user_item['id']
             logging.info('Successfully invited user {} with ID {}'.format(user_email, created_user_id))
             return created_user_id
 

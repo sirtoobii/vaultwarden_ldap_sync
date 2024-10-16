@@ -33,7 +33,14 @@ pip install -r requirements.txt
 
 # Run tests
 python3 -m unittest discover -s tests/
+
+# Run main script locally
+python3 -m scripts.sync --help
 ```
+
+### Adding another email source
+
+Adding another email source is as simple as subclassing `EmailSource` and implementing the `get_email_list()` method
 
 Contributions and feedback welcome
 
