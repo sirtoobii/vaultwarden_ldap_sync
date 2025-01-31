@@ -6,6 +6,7 @@ from vaultwarden_ldap_sync.LdapConnector import LdapConnector
 
 from dotenv import load_dotenv
 
+from vaultwarden_ldap_sync.RandomEmailSource import RandomEmailSource
 from vaultwarden_ldap_sync.VaultwardenConnector import VaultwardenConnector
 from vaultwarden_ldap_sync.LocalStorage import LocalStore
 import logging
@@ -31,7 +32,7 @@ def setup_cli_args():
                         default=False)
     parser.add_argument('--interval', type=int,
                         help='Interval between sync attempts in seconds (SYNC_INTERVAL_SECONDS)',
-                        default=5000)
+                        default=10)
     parser.add_argument('--override_safe_guard', type=int,
                         help='Override invite/disable safeguard number (MAX_USERS_AT_ONCE)',
                         default=20)
@@ -159,10 +160,9 @@ if __name__ == '__main__':
     setup_logging(log_file, log_level)
     ls = LocalStore(os.getenv('SQLITE_DB'))
     vwc = VaultwardenConnector()
-    ldc = LdapConnector(source_name="LDAP")
+    ldc = RandomEmailSource(source_name="Random")
     safe_guard = int(os.getenv('MAX_USERS_AT_ONCE', args.override_safe_guard))
     is_dry_run = os.getenv('DRYRUN', 0) == '1' or args.dryrun
-    ldap_emails = ldc.get_email_list()
 
     logging.info('Starting...')
     logging.info('DRYRUN: {}'.format(is_dry_run))
@@ -176,6 +176,7 @@ if __name__ == '__main__':
     while True:
         try:
             # first sync state
+            ldap_emails = ldc.get_email_list()
             state_update = sync_state(vwc, ls, ldap_emails)
 
             # State summary
