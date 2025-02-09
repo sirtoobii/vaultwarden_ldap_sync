@@ -13,7 +13,7 @@ for a comprehensive list of configuration options.
 
 ## Usage
 
-Configure the `.env` file according your needs and run `docker-compose up -d`.
+Configure the `.env` file according your needs and run `docker compose up -d`.
 
 ## Development
 
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 python3 -m unittest discover -s tests/
 
 # Run main script locally
-python3 -m scripts.sync --help
+python3 -m vaultwarden_user_sync.sync --help
 ```
 
 ### Adding another email source

@@ -7,10 +7,15 @@ import ldap
 import logging
 import contextlib
 
-from vaultwarden_ldap_sync.EmailSource import EmailSource
+from vaultwarden_user_sync.email_sources import EmailSource
 
 
 class LdapConnector(EmailSource):
+    """
+    Connects to an LDAP instance and extracts email addresses based on the specified filter.
+
+    Parameters are set through environment variables
+    """
 
     def __init__(self, source_name: str):
         super().__init__(source_name)

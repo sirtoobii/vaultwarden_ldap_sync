@@ -18,4 +18,4 @@ ENV SYNC_INTERVAL_SECONDS=360
 HEALTHCHECK --interval=30s --timeout=2s --start-period=60s CMD /src/.docker/check_health.sh /tmp/ldap_sync_health $SYNC_INTERVAL_SECONDS
 
 ENV PYTHONPATH=/src
-ENTRYPOINT /usr/bin/python3 /src/scripts/sync.py --interval $SYNC_INTERVAL_SECONDS --heartbeat_file /tmp/ldap_sync_health --logfile $LOGFILE --loglevel $LOGLEVEL
+ENTRYPOINT /usr/bin/python3 /src/vaultwarden_user_sync/sync.py --interval $SYNC_INTERVAL_SECONDS --heartbeat_file /tmp/ldap_sync_health --logfile $LOGFILE --loglevel $LOGLEVEL
