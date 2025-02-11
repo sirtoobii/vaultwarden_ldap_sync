@@ -97,9 +97,7 @@ if __name__ == '__main__':
             ldap_emails = ems.get_email_list()
             sync_result = SyncResult.factory(vwc, ls, ldap_emails)
 
-            if log_level == "DEBUG":
-                # State summary
-                print(sync_result.summary())
+            logging.debug(sync_result.summary())
 
             if args.adopt:
                 if len(sync_result.adoption_candidates) == 0:
