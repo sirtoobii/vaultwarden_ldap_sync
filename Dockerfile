@@ -3,6 +3,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-suggests --no-install-recommends \
+        build-essential \
         libldap2-dev \
         libsasl2-dev \
         python3-dev \
