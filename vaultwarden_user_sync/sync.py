@@ -41,10 +41,10 @@ def setup_cli_args():
                         help='If the main loop processed without any Exception, touch this status file',
                         default='/tmp/ldap_sync_healthy')
     parser.add_argument('--reset',
-                        help='Clears local state, unties all users from management! Use with caution (VUS_RESET)',
+                        help='Clears local state, unties all users from management! Exits after completion. Use with caution (VUS_RESET)',
                         action="store_true", default=False)
     parser.add_argument('--adopt',
-                        help='Adopt users who are present both in the email source and Vaultwarden (VUS_ADOPT)',
+                        help='Adopt users who are present both in the email source and Vaultwarden. Exits after completion. (VUS_ADOPT)',
                         action="store_true", default=False)
     return parser.parse_args()
 
@@ -167,6 +167,8 @@ if __name__ == '__main__':
                         f'{log_prefix} User {sync_result.get_ma_user_by_id(user_id).vw_email} ENABLED in Vaultwarden')
 
             if args.runonce:
+                logging.warning(
+                    "Exiting as requested. Either --run_once is explicitly set or implicitly through --reset or --adopt")
                 exit(0)
             # Touch heartbeat file
             with open(args.heartbeat_file, 'a'):
