@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
             logging.debug(sync_result.summary())
 
-            if args.adopt:
+            if should_adopt:
                 if len(sync_result.adoption_candidates) == 0:
                     logging.info("Nothing to adopt")
                 else:
