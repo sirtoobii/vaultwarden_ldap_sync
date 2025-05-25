@@ -46,6 +46,9 @@ def setup_cli_args():
     parser.add_argument('--adopt',
                         help='Adopt users who are present both in the email source and Vaultwarden. Exits after completion. (VUS_ADOPT)',
                         action="store_true", default=False)
+    parser.add_argument('--dump_email_source',
+                        help='Dump emails read from the the email source to the DEBUG log facility. (DUMP_EMAIL_SOURCE).',
+                        action="store_true", default=False)
     return parser.parse_args()
 
 
@@ -71,6 +74,7 @@ if __name__ == '__main__':
     is_dry_run = os.getenv('DRYRUN', "0") == '1' or args.dryrun
     is_reset = os.getenv('VUS_RESET', "0") == '1' or args.reset
     should_adopt = os.getenv('VUS_ADOPT', "0") == '1' or args.adopt
+    dump_email_source = os.getenv('DUMP_EMAIL_SOURCE', "0") == '1' or args.dump_email_source
 
     logging.info('Starting...')
     logging.info(f'DRYRUN: {is_dry_run}')
@@ -95,6 +99,8 @@ if __name__ == '__main__':
         try:
             # first sync state
             ldap_emails = ems.get_email_list()
+            if dump_email_source:
+                logging.debug(f"Email addresses from source: {ldap_emails}")
             sync_result = SyncResult.factory(vwc, ls, ldap_emails)
 
             logging.debug(sync_result.summary())
