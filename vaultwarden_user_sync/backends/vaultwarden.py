@@ -17,17 +17,17 @@ class VaultwardenUser:
 
 
 ADMIN_COOKIE_NAME = 'VW_ADMIN'
-COOKIE_JAR_NAME = '../vaultwarden_cookies.txt'
 
 
 class VaultwardenConnector:
 
-    def __init__(self):
+    def __init__(self, cookie_jar_location: str = 'vaultwarden_cookies.txt'):
         self.vaultwarden_url = os.getenv('VAULTWARDEN_URL')
         self.vaultwarden_admin_token = os.getenv('VAULTWARDEN_ADMIN_TOKEN')
         self._auth_cookie = None
+        self._cookie_jar_location = cookie_jar_location
         self.client = requests.Session()
-        self.client.cookies = http.cookiejar.MozillaCookieJar(COOKIE_JAR_NAME)
+        self.client.cookies = http.cookiejar.MozillaCookieJar(cookie_jar_location)
 
     def make_authenticated_request(self, url: str, payload: dict = None, method='GET',
                                    expected_return_code=200, timeout=5) -> Response:
@@ -40,7 +40,7 @@ class VaultwardenConnector:
         :param timeout: Request and connect timeout in seconds
         :return: On success, the Response object
         """
-        if os.path.exists(COOKIE_JAR_NAME):
+        if os.path.exists(self._cookie_jar_location):
             self.client.cookies.load()
             logging.debug('Cookie store found, loading')
         req = self.client.request(method, url, json=payload, headers={

@@ -49,6 +49,10 @@ def setup_cli_args():
     parser.add_argument('--dump_email_source',
                         help='Dump emails read from the the email source to the DEBUG log facility. (DUMP_EMAIL_SOURCE).',
                         action="store_true", default=False)
+    parser.add_argument('--cookie_jar_location',
+                        help='Specify cookie jar location. Could be helpful in restricted environments (COOKIE_JAR_LOCATION)',
+                        type=str,
+                        default='vaultwarden_cookies.txt')
     return parser.parse_args()
 
 
@@ -66,9 +70,10 @@ if __name__ == '__main__':
     args = setup_cli_args()
     log_level = os.getenv('LOGLEVEL', args.loglevel)
     log_file = os.getenv('LOGFILE', args.logfile)
+    cookie_jar_location: str = os.getenv('COOKIE_JAR_LOCATION', args.cookie_jar_location)
     setup_logging(log_file, log_level)
     ls = LocalStore(os.getenv('SQLITE_DB'))
-    vwc = VaultwardenConnector()
+    vwc = VaultwardenConnector(cookie_jar_location=cookie_jar_location)
     ems = LdapConnector(source_name="LDAP")
     safe_guard = int(os.getenv('MAX_USERS_AT_ONCE', args.override_safe_guard))
     is_dry_run = os.getenv('DRYRUN', "0") == '1' or args.dryrun
