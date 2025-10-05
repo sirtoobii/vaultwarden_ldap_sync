@@ -176,7 +176,7 @@ class SyncResult:
 
         # We want to enable users who are currently disabled both in our local state and in Vaultwarden
         # and appear in the source email list again
-        enabled_emails = (ma_user_emails_disabled.union(vw_user_emails_disabled)).intersection(
+        enabled_emails = (ma_user_emails_disabled.intersection(vw_user_emails_disabled)).intersection(
             source_email_addresses)
         change_set.enable_user_ids = {ma_id_by_email[ue] for ue in enabled_emails}
 

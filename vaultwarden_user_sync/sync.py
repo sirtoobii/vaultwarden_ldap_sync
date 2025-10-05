@@ -124,9 +124,10 @@ if __name__ == '__main__':
 
             for user_id in sync_result.user_ids_vanished_in_vw:
                 if not is_dry_run:
-                    ls.set_user_state(user_id, 'DELETED')
-                logging.info(
-                    f"{log_prefix} Set state to DELETED for: {sync_result.get_ma_user_by_id(user_id).invite_email}")
+                    if ls.get_user_state(user_id) != 'DELETED':
+                        ls.set_user_state(user_id, 'DELETED')
+                        logging.info(
+                            f"{log_prefix} Set state to DELETED for: {sync_result.get_ma_user_by_id(user_id).invite_email}")
 
             for user_id in sync_result.user_ids_disabled_in_vw:
                 if not is_dry_run:
