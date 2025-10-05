@@ -92,6 +92,16 @@ class LocalStore:
                                       (user_state, time.time(), vw_user_id))
             self.con.commit()
 
+    def get_user_state(self, vw_user_id: str):
+        """
+        Get user state in localstore
+        :param vw_user_id: Vaultwarden User ID
+        :return: None
+        """
+        res = self.con.cursor().execute('SELECT state FROM Users WHERE vw_user_id = ?', (vw_user_id,))
+        for state in res.fetchone():
+            return state
+
     def update_vw_email(self, vw_user_id: str, new_vw_email: str):
         """
         Update vaultwarden email (after user updated his email in vaultwarden)
